@@ -4,7 +4,7 @@ on: push
 jobs:
   test:
     runs-on: ubuntu-22.04
-    container: ryuichiueda/ubuntu22.04-ros2:latest
+    container: image: ros:humble-ros-base-jammy
     steps:
       - uses: actions/checkout@v2
 
