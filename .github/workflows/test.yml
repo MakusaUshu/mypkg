@@ -4,21 +4,54 @@ on: push
 jobs:
   test:
     runs-on: ubuntu-22.04
-    container: image: ros:humble-ros-base-jammy
-    steps:
-      - uses: actions/checkout@v2
 
-      - name: build and test
+    container:
+      image: ros:humble-ros-base-jammy
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
         shell: bash
         run: |
-          rsync -av ./ /root/ros2_ws/src/mypkg/
-          cd /root/ros2_ws
+          set -eux
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            rsync grep coreutils \
+            python3-colcon-common-extensions \
+            python3-rosdep \
+            python3-pip
+          rm -rf /var/lib/apt/lists/*
 
-          # ここが必須！ROS2 の環境を読み込む
+      - name: Build and test
+        shell: bash
+        env:
+          LANG: C.UTF-8
+          LC_ALL: C.UTF-8
+        run: |
+          set -eux
+
+          # workspace 作成
+          mkdir -p /root/ros2_ws/src/mypkg
+
+          # ソース配置
+          rsync -av ./ /root/ros2_ws/src/mypkg/
+
+          cd /root/ros2_ws
           source /opt/ros/humble/setup.bash
 
-          colcon build
+          # 依存解決（package.xml がある前提）
+          rosdep init || true
+          rosdep update
+          rosdep install --from-paths src --ignore-src -r -y
 
-          timeout 30 ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log
-          grep '角の数10' /tmp/mypkg.log
+          # build & test
+          colcon build --event-handlers console_direct+
 
+          # launch を短時間だけ動かしてログ確認（timeoutの終了コードで落とさない）
+          set +e
+          timeout 30s ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log 2>&1
+          set -e
+
+          cat /tmp/mypkg.log
+          grep -F '角の数10' /tmp/mypkg.log
