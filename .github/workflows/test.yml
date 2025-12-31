@@ -11,22 +11,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install tools
         shell: bash
         run: |
           set -eux
           apt-get update
           apt-get install -y --no-install-recommends \
-            rsync \
+            rsync grep coreutils \
             python3-colcon-common-extensions \
             python3-rosdep \
-            python3-pytest \
-            python3-flake8 \
-            python3-pip \
-            grep coreutils
+            python3-pip
           rm -rf /var/lib/apt/lists/*
 
-      - name: Build, test, and smoke-run launch
+      - name: Build and test
         shell: bash
         env:
           LANG: C.UTF-8
@@ -34,36 +31,27 @@ jobs:
         run: |
           set -eux
 
-          # ---- Workspace sync ----
+          # workspace 作成
           mkdir -p /root/ros2_ws/src/mypkg
+
+          # ソース配置
           rsync -av ./ /root/ros2_ws/src/mypkg/
+
           cd /root/ros2_ws
-
-          # ---- ROS env load（set +u 必須）----
-          set +u
           source /opt/ros/humble/setup.bash
-          set -u
 
-          # ---- Resolve dependencies ----
+          # 依存解決（package.xml がある前提）
           rosdep init || true
           rosdep update
           rosdep install --from-paths src --ignore-src -r -y
 
-          # ---- Build ----
+          # build & test
           colcon build --event-handlers console_direct+
 
-          # ---- Load workspace ----
-          set +u
-          source install/setup.bash
-          set -u
+          # launch を短時間だけ動かしてログ確認（timeoutの終了コードで落とさない）
+          set +e
+          timeout 30s ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log 2>&1
+          set -e
 
-          # ---- Launch smoke test ----
-          timeout 15 ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log
-
-          echo "---- LAUNCH OUTPUT ----"
           cat /tmp/mypkg.log
-
-          # ---- Validate output ----
-          echo "Checking output contains expected text..."
-          grep '角の数10' /tmp/mypkg.log
-
+          grep -F '角の数10' /tmp/mypkg.log
