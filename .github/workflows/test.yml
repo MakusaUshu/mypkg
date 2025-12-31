@@ -1,14 +1,23 @@
 name: test
 on: push
+
 jobs:
   test:
     runs-on: ubuntu-22.04
     container: ryuichiueda/ubuntu22.04-ros2:latest
     steps:
       - uses: actions/checkout@v2
+
       - name: build and test
         run: |
           rsync -av ./ /root/ros2_ws/src/mypkg/
           cd /root/ros2_ws
-          bash -xv ./src/mypkg/test/test.bash /root
+
+          # ここが必須！ROS2 の環境を読み込む
+          source /opt/ros/humble/setup.bash
+
+          colcon build
+
+          timeout 10 ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log
+          grep '角の数10' /tmp/mypkg.log
 
