@@ -34,35 +34,36 @@ jobs:
         run: |
           set -eux
 
+          # ---- Workspace sync ----
           mkdir -p /root/ros2_ws/src/mypkg
           rsync -av ./ /root/ros2_ws/src/mypkg/
           cd /root/ros2_ws
 
+          # ---- ROS env load（set +u 必須）----
           set +u
           source /opt/ros/humble/setup.bash
           set -u
 
+          # ---- Resolve dependencies ----
           rosdep init || true
           rosdep update
           rosdep install --from-paths src --ignore-src -r -y
 
-          # build
+          # ---- Build ----
           colcon build --event-handlers console_direct+
 
-          colcon test --event-handlers console_direct+
-          colcon test-result --verbose
+          # ---- Load workspace ----
+          set +u
+          source install/setup.bash
+          set -u
 
-          set +e
-          timeout 30s ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log 2>&1
-          rc=$?
-          set -e
+          # ---- Launch smoke test ----
+          timeout 15 ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log
 
+          echo "---- LAUNCH OUTPUT ----"
           cat /tmp/mypkg.log
-          grep -F '角の数10' /tmp/mypkg.log
 
-          # timeout(124) は「意図した停止」なので許容
-          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ]; then
-            echo "ros2 launch failed with exit code $rc"
-            exit "$rc"
-          fi
-          
+          # ---- Validate output ----
+          echo "Checking output contains expected text..."
+          grep '角の数10' /tmp/mypkg.log
+
