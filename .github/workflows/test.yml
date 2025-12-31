@@ -9,8 +9,10 @@ jobs:
       image: ros:humble-ros-base-jammy
 
     steps:
+      # ---- Checkout code ----
       - uses: actions/checkout@v4
 
+      # ---- Install dependencies ----
       - name: Install dependencies
         shell: bash
         run: |
@@ -23,10 +25,10 @@ jobs:
             python3-pytest \
             python3-flake8 \
             python3-pip \
-            coreutils \
-            grep
+            grep coreutils
           rm -rf /var/lib/apt/lists/*
 
+      # ---- Build, test, and smoke-run launch ----
       - name: Build, test, and smoke-run launch
         shell: bash
         env:
@@ -35,48 +37,49 @@ jobs:
         run: |
           set -eux
 
-          # ---- Workspace sync ----
+          # Workspace sync
           mkdir -p /root/ros2_ws/src/mypkg
           rsync -av ./ /root/ros2_ws/src/mypkg/
           cd /root/ros2_ws
 
-          # ---- ROS env load ----
+          # ROS environment
           set +u
           source /opt/ros/humble/setup.bash
           set -u
 
-          # ---- Resolve dependencies ----
+          # Resolve dependencies
           rosdep init || true
           rosdep update
           rosdep install --from-paths src --ignore-src -r -y
 
-          # ---- Build ----
+          # Build
           colcon build --event-handlers console_direct+ --log-base /tmp/colcon_logs
 
-          # ---- Test ----
+          # Run tests
           colcon test --event-handlers console_direct+
           colcon test-result --verbose || exit 1
 
-          # ---- Load workspace ----
+          # Load workspace
           set +u
           source install/setup.bash
           set -u
 
-          # ---- Launch smoke test ----
-          timeout 15 ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log || exit 124
+          # Launch smoke test (timeout 15s)
+          timeout 15 ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log || true
 
           echo "---- LAUNCH OUTPUT ----"
           cat /tmp/mypkg.log
 
-          # ---- Validate output ----
+          # Validate output
           echo "Checking output contains expected text..."
           grep '角の数10' /tmp/mypkg.log
 
-      # (任意) CI失敗時にログ保存
+      # ---- Upload launch log on failure ----
       - name: Upload launch log
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4   # ← v4 に変更
         with:
           name: launch-log
           path: /tmp/mypkg.log
+
 
