@@ -1,11 +1,15 @@
-import rclpy 
+#!/usr/bin/python3
+# SPDX-FilecopyrightText: 2025 Makusa Ushu 
+# SPDX-License-Identifer: BSD-3-Clause 
+
+import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int16
 
 rclpy.init()
-node = Node("talke")
+node = Node("talker")
 pub = node.create_publisher(Int16, "countup", 10)
-n = 0 #カウント用変数
+n = 3
 
 def cb():
     global n
