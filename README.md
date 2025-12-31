@@ -26,7 +26,6 @@ listener.py の中の
 
 ・Python
 
-　・テスト済み環境
 
 ・ROS2
 
