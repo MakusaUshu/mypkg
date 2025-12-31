@@ -11,22 +11,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install tools
+      - name: Install dependencies
         shell: bash
         run: |
           set -eux
           apt-get update
           apt-get install -y --no-install-recommends \
-            rsync grep coreutils \
+            rsync \
             python3-colcon-common-extensions \
             python3-rosdep \
-            python3-pip
+            python3-pytest \
+            python3-flake8 \
+            python3-pip \
+            grep coreutils
           rm -rf /var/lib/apt/lists/*
 
-       - name: build and test
+      - name: Build, test, and smoke-run launch
         shell: bash
+        env:
+          LANG: C.UTF-8
+          LC_ALL: C.UTF-8
         run: |
           set -eux
+
           mkdir -p /root/ros2_ws/src/mypkg
           rsync -av ./ /root/ros2_ws/src/mypkg/
           cd /root/ros2_ws
@@ -35,8 +42,27 @@ jobs:
           source /opt/ros/humble/setup.bash
           set -u
 
-          colcon build
+          rosdep init || true
+          rosdep update
+          rosdep install --from-paths src --ignore-src -r -y
 
-          timeout 30 ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log
-          grep '角の数10' /tmp/mypkg.log
+          # build
+          colcon build --event-handlers console_direct+
+
+          colcon test --event-handlers console_direct+
+          colcon test-result --verbose
+
+          set +e
+          timeout 30s ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log 2>&1
+          rc=$?
+          set -e
+
+          cat /tmp/mypkg.log
+          grep -F '角の数10' /tmp/mypkg.log
+
+          # timeout(124) は「意図した停止」なので許容
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ]; then
+            echo "ros2 launch failed with exit code $rc"
+            exit "$rc"
+          fi
           
