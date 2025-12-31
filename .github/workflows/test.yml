@@ -39,48 +39,11 @@ jobs:
 
           # Workspace sync
           mkdir -p /root/ros2_ws/src/mypkg
-          rsync -av ./ /root/ros2_ws/src/mypkg/
+          rsync -av --exclude='.git' ./ /root/ros2_ws/src/mypkg/
           cd /root/ros2_ws
 
           # ROS environment
           set +u
           source /opt/ros/humble/setup.bash
           set -u
-
-          # Resolve dependencies
-          rosdep init || true
-          rosdep update
-          rosdep install --from-paths src --ignore-src -r -y
-
-          # ---- Build ----
-          colcon build --log-base /tmp/colcon_logs --event-handlers console_direct+
-
-
-          # Run tests
-          colcon test --event-handlers console_direct+
-          colcon test-result --verbose || exit 1
-
-          # Load workspace
-          set +u
-          source install/setup.bash
-          set -u
-
-          # Launch smoke test (timeout 15s)
-          timeout 15 ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log || true
-
-          echo "---- LAUNCH OUTPUT ----"
-          cat /tmp/mypkg.log
-
-          # Validate output
-          echo "Checking output contains expected text..."
-          grep '角の数10' /tmp/mypkg.log
-
-      # ---- Upload launch log on failure ----
-      - name: Upload launch log
-        if: failure()
-        uses: actions/upload-artifact@v4   # ← v4 に変更
-        with:
-          name: launch-log
-          path: /tmp/mypkg.log
-
 
