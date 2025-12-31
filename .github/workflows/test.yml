@@ -23,35 +23,20 @@ jobs:
             python3-pip
           rm -rf /var/lib/apt/lists/*
 
-      - name: Build and test
+       - name: build and test
         shell: bash
-        env:
-          LANG: C.UTF-8
-          LC_ALL: C.UTF-8
         run: |
           set -eux
-
-          # workspace 作成
           mkdir -p /root/ros2_ws/src/mypkg
-
-          # ソース配置
           rsync -av ./ /root/ros2_ws/src/mypkg/
-
           cd /root/ros2_ws
+
+          set +u
           source /opt/ros/humble/setup.bash
+          set -u
 
-          # 依存解決（package.xml がある前提）
-          rosdep init || true
-          rosdep update
-          rosdep install --from-paths src --ignore-src -r -y
+          colcon build
 
-          # build & test
-          colcon build --event-handlers console_direct+
-
-          # launch を短時間だけ動かしてログ確認（timeoutの終了コードで落とさない）
-          set +e
-          timeout 30s ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log 2>&1
-          set -e
-
-          cat /tmp/mypkg.log
-          grep -F '角の数10' /tmp/mypkg.log
+          timeout 30 ros2 launch mypkg talk_listen.launch.py > /tmp/mypkg.log
+          grep '角の数10' /tmp/mypkg.log
+          
