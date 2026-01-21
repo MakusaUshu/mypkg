@@ -9,7 +9,7 @@
 また、しばらく放置することにより円に近い面積も見ることが出来る
 
 ##ノードとトピックの説明
-　
+
 ###talker
 
 ・正多角形の角の数を3から順にカウントアップし 'listener' に送信する
@@ -25,7 +25,7 @@
 ## 使用方法
 
 タブを2つ開きそれぞれのターミナルで
-　
+
 	$ros2 run mypkg talker
 
 	$ros2 run mypkg listener
@@ -36,11 +36,14 @@
 
 ###例
 
+talker側
+
 	$ros2 run mypkg talker
 	2
 	3
 
 
+listener側
 
 	 $ros2 run mypkg listener
 	角の数 3  外接円の半径 1  面積 1.299038105676658
